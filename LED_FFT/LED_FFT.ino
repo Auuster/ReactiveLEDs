@@ -5,8 +5,7 @@
  * 
  * TODO
  * 1. no music mode
- * 2. color palette
- * 3. speed
+ * 2. dynamic decay
 */
 
 //LIBRARIES
@@ -21,10 +20,11 @@
 #define PixelPin 2
 
 const uint8_t PixelCount = 26;
-const double colorSat = 50;
-const double maxBright = 100;
+const double colorSat = 40;
+const double maxBright = 80;
 const uint16_t refresh = 5;
-
+const int expand = 10;
+const int space = 40;
 
 const uint16_t samples = 128; // Must be power of 2
 const double  samplingFreq = 8500;
@@ -67,10 +67,11 @@ double color[20][3] = {{random(0,colorSat),random(0,colorSat),random(0,colorSat)
                       ,{random(0,colorSat),random(0,colorSat),random(0,colorSat)}
                       ,{random(0,colorSat),random(0,colorSat),random(0,colorSat)}};                 
 RgbColor col;
+int colorVals[PixelCount];
 
 int start = 0;
 uint8_t delta = 30;
-uint8_t spd = 20; 
+uint8_t spd = 5; 
 bool posDir = false;
 
 void setup()
@@ -79,6 +80,11 @@ void setup()
   Serial.println("Ready");
 
   randomSeed(analogRead(0));
+
+  //Initialize colorVals
+  for (int i = 0; i < 26; i++) {
+    colorVals[i] = i*space;
+  }
 }
 
 void loop()
@@ -105,22 +111,23 @@ void loop()
   currBright = 1;
  }
 
- /*LED Colour*/
- if (posDir) {start = start + spd;}
- else {start = start - spd;}
- //Rearrange if not in range
- if (start < 0){//Shift colours right
-  start = colors*100 + start;
- } else if (start > colors*100) {//Shift colors left
-  start = start - (colors-1)*100;
- }
-
  /*Assign Colour and Brightness*/
  for (int i = 0; i < PixelCount; i++) {
-   uint16_t r = ((start+i*delta)/100)%colors;
-   int r2 = (r + 1)%colors;
-    col = RgbColor::LinearBlend(RgbColor(currBright*color[r][0],currBright*color[r][1],currBright*color[r][2]), RgbColor(currBright*color[r2][0],currBright*color[r2][1],currBright*color[r2][2]), ((start+i*delta)%100)/100.0);
-   strip.SetPixelColor(i, col);
+  //MOVE PER PIXEL
+  if (posDir) {
+  colorVals[i] = colorVals[i] + spd + random(-1*expand, expand+1);
+  } else {
+    colorVals[i] = colorVals[i] - spd + random(-1*expand, expand+1);
+  }
+  if (colorVals[i] < 0) {
+    colorVals[i] = 2000 + colorVals[i];
+  } else if (colorVals[i] > 2000) {
+    colorVals[i] = colorVals[i] - 1900;
+  }
+  uint16_t r = (colorVals[i]/100)%colors;
+  int r2 = (r + 1)%colors;
+  col = RgbColor::LinearBlend(RgbColor(currBright*color[r][0],currBright*color[r][1],currBright*color[r][2]), RgbColor(currBright*color[r2][0],currBright*color[r2][1],currBright*color[r2][2]), (colorVals[i])%100/100.0);
+  strip.SetPixelColor(i, col);
  }
  strip.Show();
 
